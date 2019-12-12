@@ -28,7 +28,7 @@ class Camera():
     @property
     def entities_in_view(self):
         return self._entities_in_view
-    
+
     @property
     def entities_in_view_index(self):
         return self._entities_in_view_index
@@ -36,19 +36,30 @@ class Camera():
 
 class Player():
     _vx, _vy = 0, 0
+    _speed = 5
+    _fire_ticks = 0
     @staticmethod
     def build_hitbox(x, y, w, h):
         return {"x": x, "y": y, "w": w, "h": h, "type": "circle"}
 
-    def __init__(self, x, y, size, speed, camera_x, camera_y):
-        self._x, self._y, self._size, self._speed = x, y, size, speed
+    def __init__(self, id, x, y, size, camera_x, camera_y):
+        self._id = id
+        self._x, self._y, self._size = x, y, size
         self._camera_x, self._camera_y = camera_x, camera_y
         self._hitbox = self.build_hitbox(x, y, size, size)
 
     def update_camera_position(self, x, y):
         self._camera_x, self._camera_y = x, y
 
+    def fire(self):
+        global entities
+        if self._size > 100 and self._fire_ticks == 0:
+            self._fire_ticks = 30
+            self._size -= self._size/10
+            entities.append(DetachedFood(create_entity_id(), self._id, self._x, self._y, self._vx * 4, self._vy * 4, self._size/4, self._camera_x, self._camera_y))
+
     def render(self):
+        self._fire_ticks -= 1 if self._fire_ticks > 0 else 0
         fill(0, 150, 255)
         circle(self._x - self._camera_x, self._y - self._camera_y, self._size)
 
@@ -57,12 +68,17 @@ class Player():
         self._vy = ((self._camera_y + y) - self._y)/20
         self._vx = self._speed if self._vx > self._speed else -self._speed if self._vx < -self._speed else self._vx
         self._vy = self._speed if self._vy > self._speed else -self._speed if self._vy < -self._speed else self._vy
-    
-    def receive_collision(self):
-        self._size += 2
-        
+
+    def receive_keystrokes(self, keysPressed):
+        if "w" in keysPressed:
+            self.fire()
+
+    def receive_collision(self, entity):
+        if hasattr(entity, 'food_value'):
+            self._size += entity.food_value
 
     def move(self):
+        self._speed = 5 - int(self._size / 100)
         self._x += self._vx
         self._y += self._vy
         self._hitbox = self.build_hitbox(self._x, self._y, self._size, self._size)
@@ -89,14 +105,16 @@ class Player():
         return self._hitbox
 
 
-class Food:
+class Food(object):
     destructible = True
     @staticmethod
     def build_hitbox(x, y, w, h):
         return {"x": x, "y": y, "w": w, "h": h, "type": "circle"}
     
-    def __init__(self, x, y, size, camera_x, camera_y):
+    def __init__(self, id, x, y, size, camera_x, camera_y):
+        self._id = id
         self._x, self._y, self._size = x, y, size
+        self._food_value = int(self._size / 20)
         self._camera_x, self._camera_y = camera_x, camera_y
         self._hitbox = self.build_hitbox(x, y, size, size)
 
@@ -104,7 +122,12 @@ class Food:
         self._camera_x, self._camera_y = x, y
 
     def render(self):
-        fill(0, 255, 0)
+        if 20 < self._size <= 40:
+            fill(0, 0, 255)
+        elif 40 < self._size <= 60:
+            fill(255, 255, 0)
+        else:
+            fill(0, 255, 0)
         circle(self._x - self._camera_x, self._y - self._camera_y, self._size)
     
     @property
@@ -127,6 +150,33 @@ class Food:
     def hitbox(self):
         return self._hitbox
 
+    @property
+    def food_value(self):
+        return self._food_value
+
+
+class DetachedFood(Food):
+    conditional_collisions = True
+    _deceleration_ticks = 0
+
+    def __init__(self, id, spawned_from_id, x, y, vx, vy, size, camera_x, camera_y):
+        self._id = id
+        self._spawned_from_id = spawned_from_id
+        self._x, self._y, self._size = x, y, size
+        self._vx, self._vy = vx, vy
+        self._food_value = int(self._size / 20)
+        self._camera_x, self._camera_y = camera_x, camera_y
+        self._hitbox = self.build_hitbox(x, y, size, size)
+
+    def move(self):
+        self._deceleration_ticks += 1
+        self._x += self._vx
+        self._y += self._vy
+        if self._deceleration_ticks > 2:
+            self._deceleration_ticks = 0
+            self._vx += -1 if self._vx > 0 else 1 if self._vx < 0 else 0
+            self._vy += -1 if self._vy > 0 else 1 if self._vy < 0 else 0
+
 
 def collision_scan(entity1):
     global entities
@@ -145,20 +195,34 @@ def collision_scan(entity1):
             if hasattr(entity2, 'destructible'):
                 del entities[c.entities_in_view_index[i]]
                 c.update_entities(entities)
+            if hasattr(entity2, 'conditional_collisions'):
+                pass
             if hasattr(entity2, 'receive_collision'):
                 entity2.receive_collision()
-            entity1.receive_collision()
+            entity1.receive_collision(entity2)
+
+
+def create_entity_id():
+    global entity_ids
+    new_id = 1 + entity_ids[-1] if len(entity_ids) != 0 else 1
+    entity_ids.append(new_id)
+    return new_id
 
 
 def setup():
-    global keysPressed, entities, c
+    global keysPressed, entities, entity_ids, c
     size(1000, 1000)
     keysPressed = []
     entities = []
+    entity_ids = []
     c = Camera(MAP_W/2 - width/2, MAP_H/2 - height/2, width, height)
-    for _ in range(MAP_W):
-        entities.append(Food(random(MAP_W), random(MAP_H), 20, MAP_W/2 - width/2, MAP_H/2 - height/2))
-    entities.append(Player(MAP_W/2, MAP_H/2, 50, 10, MAP_W/2 - width/2, MAP_H/2 - height/2))
+    for _ in range(MAP_W/3):
+        entities.append(Food(create_entity_id(), random(MAP_W), random(MAP_H), 20, MAP_W/2 - width/2, MAP_H/2 - height/2))
+    for _ in range(MAP_W/6):
+        entities.append(Food(create_entity_id(), random(MAP_W), random(MAP_H), 40, MAP_W/2 - width/2, MAP_H/2 - height/2))
+    for _ in range(MAP_W/9):
+        entities.append(Food(create_entity_id(), random(MAP_W), random(MAP_H), 60, MAP_W/2 - width/2, MAP_H/2 - height/2))
+    entities.append(Player(create_entity_id(), MAP_W/2, MAP_H/2, 50, MAP_W/2 - width/2, MAP_H/2 - height/2))
 
 
 def draw():
