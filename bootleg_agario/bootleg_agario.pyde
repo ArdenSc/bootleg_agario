@@ -32,6 +32,14 @@ class Camera():
     @property
     def entities_in_view_index(self):
         return self._entities_in_view_index
+    
+    @property
+    def x(self):
+        return self._x
+
+    @property
+    def y(self):
+        return self._y
 
 
 class Player():
@@ -199,8 +207,9 @@ def collision_scan(entity1):
             if hasattr(entity2, 'destructible') and entity2.destructible:
                 del entities[c.entities_in_view_index[i]]
                 c.update_entities(entities)
-            if hasattr(entity2, 'conditional_collisions'):
-                pass
+            if hasattr(entity2, 'conditional_collisions') and entity2.conditional_collisions:
+                if entity1.id in entity2.blacklisted_ids:
+                    continue
             if hasattr(entity2, 'receive_collision'):
                 entity2.receive_collision()
             entity1.receive_collision(entity2)
@@ -212,6 +221,10 @@ def create_entity_id():
     entity_ids.append(new_id)
     return new_id
 
+def spawn_food():
+    while len(entities) < 6000:
+        entities.insert(entities.index(next(i for i in entities if isinstance(i, Player))) - 1, Food(create_entity_id(), random(MAP_W), random(MAP_H), 20, c.x, c.y))
+
 
 def setup():
     global keysPressed, entities, entity_ids, c
@@ -221,16 +234,17 @@ def setup():
     entity_ids = []
     c = Camera(MAP_W/2 - width/2, MAP_H/2 - height/2, width, height)
     for _ in range(MAP_W/3):
-        entities.append(Food(create_entity_id(), random(MAP_W), random(MAP_H), 20, MAP_W/2 - width/2, MAP_H/2 - height/2))
+        entities.append(Food(create_entity_id(), random(MAP_W), random(MAP_H), 20, c.x, c.y))
     for _ in range(MAP_W/6):
-        entities.append(Food(create_entity_id(), random(MAP_W), random(MAP_H), 40, MAP_W/2 - width/2, MAP_H/2 - height/2))
+        entities.append(Food(create_entity_id(), random(MAP_W), random(MAP_H), 40, c.x, c.y))
     for _ in range(MAP_W/9):
-        entities.append(Food(create_entity_id(), random(MAP_W), random(MAP_H), 60, MAP_W/2 - width/2, MAP_H/2 - height/2))
-    entities.append(Player(create_entity_id(), MAP_W/2, MAP_H/2, 50, MAP_W/2 - width/2, MAP_H/2 - height/2))
+        entities.append(Food(create_entity_id(), random(MAP_W), random(MAP_H), 60, c.x, c.y))
+    entities.append(Player(create_entity_id(), MAP_W/2, MAP_H/2, 50, c.x, c.y))
 
 
 def draw():
     background(255)
+    spawn_food()
     for entity in entities:
         if hasattr(entity, 'receive_keystrokes'):
             entity.receive_keystrokes(keysPressed)
