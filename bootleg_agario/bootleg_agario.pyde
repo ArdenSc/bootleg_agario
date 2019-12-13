@@ -18,7 +18,7 @@ class Camera():
                     self._entities_in_view_index.append(i)
 
     def move(self, x, y):
-        self._x, self._y = x - width/2, y - height/2
+        self._x, self._y = int(x - width/2), int(y - height/2)
 
     def render_view(self):
         for entity in self._entities_in_view:
@@ -36,7 +36,7 @@ class Camera():
 
 class Player():
     _vx, _vy = 0, 0
-    _speed = 5
+    _speed = 6
     _fire_ticks = 0
     @staticmethod
     def build_hitbox(x, y, w, h):
@@ -56,33 +56,34 @@ class Player():
         if self._size > 100 and self._fire_ticks == 0:
             self._fire_ticks = 30
             self._size -= self._size/10
-            entities.append(DetachedFood(create_entity_id(), self._id, self._x, self._y, self._vx * 4, self._vy * 4, self._size/4, self._camera_x, self._camera_y))
+            entities.insert(entities.index(self) - 1, DetachedFood(create_entity_id(), self._id, self._x, self._y, self._vx * 4, self._vy * 4, self._size/4, self._size/4, self._camera_x, self._camera_y))
 
     def render(self):
         self._fire_ticks -= 1 if self._fire_ticks > 0 else 0
         fill(0, 150, 255)
-        circle(self._x - self._camera_x, self._y - self._camera_y, self._size)
+        circle(int(self._x) - self._camera_x, int(self._y) - self._camera_y, self._size)
 
     def receive_mouse_location(self, x, y):
         self._vx = ((self._camera_x + x) - self._x)/20
         self._vy = ((self._camera_y + y) - self._y)/20
-        self._vx = self._speed if self._vx > self._speed else -self._speed if self._vx < -self._speed else self._vx
-        self._vy = self._speed if self._vy > self._speed else -self._speed if self._vy < -self._speed else self._vy
+        if sqrt(float(abs(self._vx))**2 + float(abs(self._vy))**2) > self._speed:
+            speed_restriction_factor = float(self._speed) / sqrt(float(abs(self._vx))**2 + float(abs(self._vy))**2)
+            self._vx = self._vx * speed_restriction_factor
+            self._vy = self._vy * speed_restriction_factor
 
     def receive_keystrokes(self, keysPressed):
         if "w" in keysPressed:
             self.fire()
 
     def receive_collision(self, entity):
-        if hasattr(entity, 'food_value'):
+        if hasattr(entity, 'food_value') and hasattr(entity, 'destructible') and entity.destructible:
             self._size += entity.food_value
 
     def move(self):
-        self._speed = 5 - int(self._size / 100)
+        self._speed = 6 - self._size / 100
         self._x += self._vx
         self._y += self._vy
         self._hitbox = self.build_hitbox(self._x, self._y, self._size, self._size)
-
 
     @property
     def x(self):
@@ -110,7 +111,7 @@ class Food(object):
     @staticmethod
     def build_hitbox(x, y, w, h):
         return {"x": x, "y": y, "w": w, "h": h, "type": "circle"}
-    
+
     def __init__(self, id, x, y, size, camera_x, camera_y):
         self._id = id
         self._x, self._y, self._size = x, y, size
@@ -128,8 +129,8 @@ class Food(object):
             fill(255, 255, 0)
         else:
             fill(0, 255, 0)
-        circle(self._x - self._camera_x, self._y - self._camera_y, self._size)
-    
+        circle(int(self._x) - self._camera_x, int(self._y) - self._camera_y, self._size)
+
     @property
     def x(self):
         return self._x
@@ -145,7 +146,7 @@ class Food(object):
     @property
     def h(self):
         return self._size
-    
+
     @property
     def hitbox(self):
         return self._hitbox
@@ -156,15 +157,16 @@ class Food(object):
 
 
 class DetachedFood(Food):
+    destructible = False
     conditional_collisions = True
     _deceleration_ticks = 0
 
-    def __init__(self, id, spawned_from_id, x, y, vx, vy, size, camera_x, camera_y):
+    def __init__(self, id, spawned_from_id, x, y, vx, vy, size, food_value, camera_x, camera_y):
         self._id = id
         self._spawned_from_id = spawned_from_id
         self._x, self._y, self._size = x, y, size
         self._vx, self._vy = vx, vy
-        self._food_value = int(self._size / 20)
+        self._food_value = food_value
         self._camera_x, self._camera_y = camera_x, camera_y
         self._hitbox = self.build_hitbox(x, y, size, size)
 
@@ -172,10 +174,12 @@ class DetachedFood(Food):
         self._deceleration_ticks += 1
         self._x += self._vx
         self._y += self._vy
-        if self._deceleration_ticks > 2:
+        if self._deceleration_ticks > 3 and (self._vx != 0 or self._vy != 0):
             self._deceleration_ticks = 0
             self._vx += -1 if self._vx > 0 else 1 if self._vx < 0 else 0
-            self._vy += -1 if self._vy > 0 else 1 if self._vy < 0 else 0
+            self._vy += -1 if self._vy > 1 else 1 if self._vy < 0 else 0
+            self._vx = 0 if -1 < self._vx < 1 else self._vx
+            self._vy = 0 if -1 < self._vy < 1 else self._vy
 
 
 def collision_scan(entity1):
@@ -192,7 +196,7 @@ def collision_scan(entity1):
             if sqrt((entity1.hitbox["x"] - entity2.hitbox["x"])**2 + (entity1.hitbox["y"] - entity2.hitbox["y"])**2) <= entity1.hitbox["w"]/2 - entity2.hitbox["w"]/2:
                 hit = True
         if hit:
-            if hasattr(entity2, 'destructible'):
+            if hasattr(entity2, 'destructible') and entity2.destructible:
                 del entities[c.entities_in_view_index[i]]
                 c.update_entities(entities)
             if hasattr(entity2, 'conditional_collisions'):
