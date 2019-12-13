@@ -56,7 +56,7 @@ class Player():
         if self._size > 100 and self._fire_ticks == 0:
             self._fire_ticks = 30
             self._size -= self._size/10
-            entities.insert(entities.index(self) - 1, DetachedFood(create_entity_id(), self._id, self._x, self._y, self._vx * 4, self._vy * 4, self._size/4, self._size/4, self._camera_x, self._camera_y))
+            entities.insert(entities.index(next(i for i in entities if isinstance(i, Player))) - 1, DetachedFood(create_entity_id(), self._id, self._x, self._y, self._vx * 4, self._vy * 4, self._size/4, self._size/4, self._camera_x, self._camera_y))
 
     def render(self):
         self._fire_ticks -= 1 if self._fire_ticks > 0 else 0
@@ -64,8 +64,8 @@ class Player():
         circle(int(self._x) - self._camera_x, int(self._y) - self._camera_y, self._size)
 
     def receive_mouse_location(self, x, y):
-        self._vx = ((self._camera_x + x) - self._x)/20
-        self._vy = ((self._camera_y + y) - self._y)/20
+        self._vx = ((self._camera_x + x) - self._x)/(self._speed * 4)
+        self._vy = ((self._camera_y + y) - self._y)/(self._speed * 4)
         if sqrt(float(abs(self._vx))**2 + float(abs(self._vy))**2) > self._speed:
             speed_restriction_factor = float(self._speed) / sqrt(float(abs(self._vx))**2 + float(abs(self._vy))**2)
             self._vx = self._vx * speed_restriction_factor
@@ -80,7 +80,7 @@ class Player():
             self._size += entity.food_value
 
     def move(self):
-        self._speed = 6 - self._size / 100
+        self._speed = 6 - float(self._size) / 250
         self._x += self._vx
         self._y += self._vy
         self._hitbox = self.build_hitbox(self._x, self._y, self._size, self._size)
