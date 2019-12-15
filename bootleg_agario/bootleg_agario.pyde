@@ -113,6 +113,10 @@ class Player():
     def hitbox(self):
         return self._hitbox
 
+    @property
+    def id(self):
+        return self._id
+
 
 class Food(object):
     destructible = True
@@ -165,13 +169,13 @@ class Food(object):
 
 
 class DetachedFood(Food):
-    destructible = False
     conditional_collisions = True
+    _conditional_ticks = 60
     _deceleration_ticks = 0
 
     def __init__(self, id, spawned_from_id, x, y, vx, vy, size, food_value, camera_x, camera_y):
         self._id = id
-        self._spawned_from_id = spawned_from_id
+        self._blacklisted_ids = [spawned_from_id]
         self._x, self._y, self._size = x, y, size
         self._vx, self._vy = vx, vy
         self._food_value = food_value
@@ -189,6 +193,25 @@ class DetachedFood(Food):
             self._vx = 0 if -1 < self._vx < 1 else self._vx
             self._vy = 0 if -1 < self._vy < 1 else self._vy
 
+    def render(self):
+        # This should work but doesn't because Processing is stupid
+        # super(Food, self).render()
+        if 20 < self._size <= 40:
+            fill(0, 0, 255)
+        elif 40 < self._size <= 60:
+            fill(255, 255, 0)
+        else:
+            fill(0, 255, 0)
+        circle(int(self._x) - self._camera_x, int(self._y) - self._camera_y, self._size)
+        self._conditional_ticks -= 1 if self._conditional_ticks != 0 else 0
+        if self._conditional_ticks == 0 and self.conditional_collisions:
+            self.conditional_collisions = False
+        
+
+    @property
+    def blacklisted_ids(self):
+        return self._blacklisted_ids
+
 
 def collision_scan(entity1):
     global entities
@@ -204,12 +227,13 @@ def collision_scan(entity1):
             if sqrt((entity1.hitbox["x"] - entity2.hitbox["x"])**2 + (entity1.hitbox["y"] - entity2.hitbox["y"])**2) <= entity1.hitbox["w"]/2 - entity2.hitbox["w"]/2:
                 hit = True
         if hit:
-            if hasattr(entity2, 'destructible') and entity2.destructible:
-                del entities[c.entities_in_view_index[i]]
-                c.update_entities(entities)
             if hasattr(entity2, 'conditional_collisions') and entity2.conditional_collisions:
                 if entity1.id in entity2.blacklisted_ids:
                     continue
+            if hasattr(entity2, 'destructible') and entity2.destructible:
+                print("deleted")
+                del entities[c.entities_in_view_index[i]]
+                c.update_entities(entities)
             if hasattr(entity2, 'receive_collision'):
                 entity2.receive_collision()
             entity1.receive_collision(entity2)
