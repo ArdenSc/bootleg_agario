@@ -32,7 +32,7 @@ class Camera():
     @property
     def entities_in_view_index(self):
         return self._entities_in_view_index
-    
+
     @property
     def x(self):
         return self._x
@@ -194,19 +194,11 @@ class DetachedFood(Food):
             self._vy = 0 if -1 < self._vy < 1 else self._vy
 
     def render(self):
-        # This should work but doesn't because Processing is stupid
-        # super(Food, self).render()
-        if 20 < self._size <= 40:
-            fill(0, 0, 255)
-        elif 40 < self._size <= 60:
-            fill(255, 255, 0)
-        else:
-            fill(0, 255, 0)
-        circle(int(self._x) - self._camera_x, int(self._y) - self._camera_y, self._size)
+        super(DetachedFood, self).render()
         self._conditional_ticks -= 1 if self._conditional_ticks != 0 else 0
         if self._conditional_ticks == 0 and self.conditional_collisions:
             self.conditional_collisions = False
-        
+
 
     @property
     def blacklisted_ids(self):
@@ -231,7 +223,6 @@ def collision_scan(entity1):
                 if entity1.id in entity2.blacklisted_ids:
                     continue
             if hasattr(entity2, 'destructible') and entity2.destructible:
-                print("deleted")
                 del entities[c.entities_in_view_index[i]]
                 c.update_entities(entities)
             if hasattr(entity2, 'receive_collision'):
@@ -244,6 +235,7 @@ def create_entity_id():
     new_id = 1 + entity_ids[-1] if len(entity_ids) != 0 else 1
     entity_ids.append(new_id)
     return new_id
+
 
 def spawn_food():
     while len(entities) < 6000:
@@ -285,12 +277,10 @@ def draw():
 
 
 def keyPressed():
-    global keysPressed
     if key not in keysPressed:
         keysPressed.append(key)
 
 
 def keyReleased():
-    global keysPressed
     if key in keysPressed:
         keysPressed.remove(key)
