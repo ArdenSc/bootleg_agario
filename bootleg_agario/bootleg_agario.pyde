@@ -32,7 +32,7 @@ class Camera():
     @property
     def entities_in_view_index(self):
         return self._entities_in_view_index
-    
+
     @property
     def x(self):
         return self._x
@@ -94,10 +94,6 @@ class Player():
         self._hitbox = self.build_hitbox(self._x, self._y, self._size, self._size)
 
     @property
-    def id(self):
-        return self._id
-
-    @property
     def x(self):
         return self._x
 
@@ -112,10 +108,14 @@ class Player():
     @property
     def h(self):
         return self._size
-    
+
     @property
     def hitbox(self):
         return self._hitbox
+
+    @property
+    def id(self):
+        return self._id
 
 
 class Food(object):
@@ -169,8 +169,9 @@ class Food(object):
 
 
 class DetachedFood(Food):
-    destructible = False
     conditional_collisions = True
+    _conditional_ticks = 60
+    _deceleration_ticks = 0
 
     def __init__(self, id, spawned_from_id, x, y, vx, vy, size, food_value, camera_x, camera_y):
         super(DetachedFood, self).__init__(id, x, y, size, camera_x, camera_y)
