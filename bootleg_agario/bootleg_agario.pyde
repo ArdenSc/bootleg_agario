@@ -94,6 +94,10 @@ class Player():
         self._hitbox = self.build_hitbox(self._x, self._y, self._size, self._size)
 
     @property
+    def id(self):
+        return self._id
+
+    @property
     def x(self):
         return self._x
 
@@ -167,18 +171,17 @@ class Food(object):
 class DetachedFood(Food):
     destructible = False
     conditional_collisions = True
-    _deceleration_ticks = 0
 
     def __init__(self, id, spawned_from_id, x, y, vx, vy, size, food_value, camera_x, camera_y):
-        self._id = id
-        self._spawned_from_id = spawned_from_id
-        self._x, self._y, self._size = x, y, size
+        super(DetachedFood, self).__init__(id, x, y, size, camera_x, camera_y)
+        self._blacklisted_ids = [spawned_from_id]
         self._vx, self._vy = vx, vy
         self._food_value = food_value
-        self._camera_x, self._camera_y = camera_x, camera_y
-        self._hitbox = self.build_hitbox(x, y, size, size)
+        self._deceleration_ticks = 0
 
     def move(self):
+        if self._vx == 0 and self._vy == 0:
+            self.conditional_collisions = False
         self._deceleration_ticks += 1
         self._x += self._vx
         self._y += self._vy
@@ -188,6 +191,10 @@ class DetachedFood(Food):
             self._vy += -1 if self._vy > 1 else 1 if self._vy < 0 else 0
             self._vx = 0 if -1 < self._vx < 1 else self._vx
             self._vy = 0 if -1 < self._vy < 1 else self._vy
+
+    @property
+    def blacklisted_ids(self):
+        return self._blacklisted_ids
 
 
 def collision_scan(entity1):
@@ -204,11 +211,14 @@ def collision_scan(entity1):
             if sqrt((entity1.hitbox["x"] - entity2.hitbox["x"])**2 + (entity1.hitbox["y"] - entity2.hitbox["y"])**2) <= entity1.hitbox["w"]/2 - entity2.hitbox["w"]/2:
                 hit = True
         if hit:
+            print("hit")
             if hasattr(entity2, 'destructible') and entity2.destructible:
                 del entities[c.entities_in_view_index[i]]
                 c.update_entities(entities)
             if hasattr(entity2, 'conditional_collisions') and entity2.conditional_collisions:
+                print("hit conditional")
                 if entity1.id in entity2.blacklisted_ids:
+                    print("hit blacklisted")
                     continue
             if hasattr(entity2, 'receive_collision'):
                 entity2.receive_collision()
