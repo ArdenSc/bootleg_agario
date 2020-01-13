@@ -193,6 +193,13 @@ class DetachedFood(Food):
             self._vx = 0 if -1 < self._vx < 1 else self._vx
             self._vy = 0 if -1 < self._vy < 1 else self._vy
 
+    def render(self):
+        super(DetachedFood, self).render()
+        self._conditional_ticks -= 1 if self._conditional_ticks != 0 else 0
+        if self._conditional_ticks == 0 and self.conditional_collisions:
+            self.conditional_collisions = False
+
+
     @property
     def blacklisted_ids(self):
         return self._blacklisted_ids
@@ -212,15 +219,14 @@ def collision_scan(entity1):
             if sqrt((entity1.hitbox["x"] - entity2.hitbox["x"])**2 + (entity1.hitbox["y"] - entity2.hitbox["y"])**2) <= entity1.hitbox["w"]/2 - entity2.hitbox["w"]/2:
                 hit = True
         if hit:
-            print("hit")
-            if hasattr(entity2, 'destructible') and entity2.destructible:
-                del entities[c.entities_in_view_index[i]]
-                c.update_entities(entities)
             if hasattr(entity2, 'conditional_collisions') and entity2.conditional_collisions:
                 print("hit conditional")
                 if entity1.id in entity2.blacklisted_ids:
                     print("hit blacklisted")
                     continue
+            if hasattr(entity2, 'destructible') and entity2.destructible:
+                del entities[c.entities_in_view_index[i]]
+                c.update_entities(entities)
             if hasattr(entity2, 'receive_collision'):
                 entity2.receive_collision()
             entity1.receive_collision(entity2)
@@ -231,6 +237,7 @@ def create_entity_id():
     new_id = 1 + entity_ids[-1] if len(entity_ids) != 0 else 1
     entity_ids.append(new_id)
     return new_id
+
 
 def spawn_food():
     while len(entities) < 6000:
@@ -272,12 +279,10 @@ def draw():
 
 
 def keyPressed():
-    global keysPressed
     if key not in keysPressed:
         keysPressed.append(key)
 
 
 def keyReleased():
-    global keysPressed
     if key in keysPressed:
         keysPressed.remove(key)
